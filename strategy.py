@@ -1,5 +1,7 @@
 from poloniex import Poloniex
-
+from IchimokuCloud import IchimokuClouds
+import time
+import datetime
 #Constants below
 
 LONG_TRADE = 0
@@ -20,6 +22,8 @@ class Strategy:
         self.algo = algo
         self.polo = Poloniex()
         self.tickers = tickers
+        self.polo.key = 'KEFPS6QC-CE8KHULI-ACLJY1GC-L4P923CC'
+        self.polo.secret = '4121c780577b601b051c2de8325e977cab65dbee250027c166d52762d7bee3dbd48245d9e0c89830a327fd05f0481c0433556be2c8a9bc6d775e8a84c6ad7df361'
 
     def calculate_shares_on_hand(order_book):
         total = 0
@@ -27,13 +31,33 @@ class Strategy:
             total += trade.amount
         return total
 
+    def get_data(self, start_date, end_date, ticker):
+        '''
+        get_data(self, start_date, end_date, ticker) - gets the historical data
+        as a dataframe
+            Inputs: [start_date] is a string start date following the form 'MM/DD/YYYY'.
+            [end_date] is the end date following the form 'MM/DD/YYYY'. [ticker] is the 
+            currency pair to trade on.
+            Returns: a python data frame where each row represents a ticker
+        '''
+        start_unix = time.mktime(datetime.datetime.strptime(start_date, "%d/%m/%Y").timetuple())
+        end_unix = time.mktime(datetime.datetime.strptime(end_date, "%m/%d/%Y").timetuple())
+        historical_data = polo.returnChartData(currencyPair=ticker, period=period, start=start_unix,
+                                               end=end_unix)
+        data_frame = pd.DataFrame.from_dict(historical_data, orient='columns',
+                                            dtype=None)
+        data_frame = data_frame[['date', 'high', 'low', 'open', 'close', 'quoteVolume', 'volume',
+                'weightedAverage']]
+        return data_frame
+
+
     def backtest(self, start_date, end_date, ticker, initial_deposit, fees):
         '''
         backtest(self, start_date, end_date, initial_deposit, fees) - backtests
         the current algorithm through the start and end date provided.
-            Inputs: [start_date] is a Unix timestamp start date of the back 
-            test. [end_date] is a Unix timestamp end date of the back test.
-            [ticker] is a string representing the ticker to trade on.
+            Inputs: [start_date] is a string start date of the following form
+            'MM/DD/YYYY'. [end_date] is a string end date of the following form
+            'MM/DD/YYYY. [ticker] is a string representing the ticker to trade on.
             [initial_deposit] is a float representing the amount of cash
             we start out with in USD. [fees] is a float representing the the 
             fees per transaction for trade.
@@ -46,7 +70,7 @@ class Strategy:
         order_book = []
         liquid_funds =  initial_deposit
         for index, row in security_df.iterrows():
-            trade = self.algo(order_book, row, ticker, liquid_funds)
+            trade = self.algo(order_book, ticker, liquid_funds, row)
 
             if trade['order'] == LONG_TRADE:
                 if row['weightedAverage'] * trade['shares'] > liquid_funds:
@@ -78,8 +102,13 @@ class Strategy:
                             liquid_funds += row['weightedAverage'] * value.amount
                             
         return liquid_funds 
-
-
         
-
 if __name__ == "__main__":
+    ichimoku_strat = IchimokuClouds(9, 26, 52)
+    start_date = "06/01/2017"
+    end_date = "04/01/2018"
+    ticker = "BTC_ETH"
+    initial_deposit = 5000
+    fees = 0.1
+    strat = Strategy(ichimoku_strat.cloud_algo, ticker)
+    strat.backtest(self, start_date, end_date, ticker, initial_deposit, fees)
